@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import Union, Dict, Any, ClassVar, Optional, Tuple, List
 from datetime import datetime
 import numpy as np
-from PIL import Image
 
 @dataclass
 class PartSignal:  # todo abc
