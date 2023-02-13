@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+
+        <title>Sleep Scorer by Sleep Revolution</title>
+    </head>
+    <body>
+
+
+          <nav class="navbar navbar-expand-md navbar-light bg-light">
+            <div class="container-fluid">
+              <a class="navbar-brand" href="#">
+                    <img src="img/icon.png" alt="" width="30" height="24" class="d-inline-block align-text-top">
+                    <b>SleepScorer</b> by Sleep Revolution
+              </a>
+              <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarTogglerDemo02" aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+              </button>
+              <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                  <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="#">Home</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="#">About</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link" href="#">Help</a>
+                  </li>
+                </ul>
+                <div class="d-flex">
+                  <a href="download.html" class="btn btn-primary">Download desktop client</button>
+                </a>
+                </div>
+              </div>
+            </div>
+          </nav>
+          
+
+          <div class="container col-xxl-8 px-1 py-1">
+            <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
+              <div class="col-10 col-sm-8 col-md-6">
+                <img src="img/bootstrap-themes.png" class="d-block mx-lg-auto img-fluid" alt="Bootstrap Themes" loading="lazy" width="700" height="500">
+              </div>
+              <div class="col-md-6">
+                <h3 class="display-6 fw-bold lh-1 mb-3">Sleep stages with gray areas</h3>
+                <p class="lead">Streamlining the work of sleep specialists: Upload recordings collected from PSG or self applied PSG. The recordings are securely analyzed and scored, providing the user with accurate sleep stages and identifying areas where a human expert needs to double check. </p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                  <button type="button" class="btn btn-secondary btn-lg px-4 me-md-2">How it works</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+        <div class="container">
+            
+            <h3>Upload a zip file</h3>
+            <form action="http://127.0.0.1:8000/uploadfile" enctype="multipart/form-data" method="post" autocomplete="off">
+                <div class="bg-light p-5 rounded-lg m-3">
+                    <label for="file" class="form-label">File Input</label>
+                    <input class="form-control" type="file" id="file" name="file">
+                </div>
+                <div class="bg-light rounded-lg m-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" type="button submit"><i class="bx bxs-cloud-upload"
+                                style="font-size:1.4em;"></i> Submit</button>
+                    </div>
+                </div>
+                </div>
+            </form>
+            
+        </div>
+
+        
+
+        <!-- Optional JavaScript; choose one of the two! -->
+
+        <!-- Option 1: Bootstrap Bundle with Popper -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+
+        <!-- Option 2: Separate Popper and Bootstrap JS -->
+        <!--
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
+        -->
+    </body>
+</html>
