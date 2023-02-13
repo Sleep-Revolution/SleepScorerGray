@@ -1,0 +1,55 @@
+debug: True
+nameDir: Test_Sleep_Stage_Classification
+log_dir: ./logs/
+    
+Data:
+  Predictors: !GrayAreaDL:Predictors
+    path_edf_data: /datasets/10x100/psg/edf_recordings/
+    signalsNames: ['C4-A1', 'C4-M1', 'AF3-E3E4' ,'ROC-LOC', '1-2', 'E2-AFZ']
+  Prediction: !GrayAreaDL:Prediction
+    path_data_hypno: /datasets/10x100/psg/padded_hypnograms/
+
+Preprocessing:
+  - !GrayAreaDL:Resample
+    filtering: True
+  - !GrayAreaDL:ChebyHPFilter
+    fs: 64
+    cutoff: 0.3
+  - !GrayAreaDL:IQRstd
+    quantile: None
+
+Harmonisation:
+  pathTosave: /main/home/gabrielj@sleep.ru.is/GrayAreaDL/TmpDataTest/
+  windowEpoch: 2000
+  
+Splitters:
+  n_splits: 1
+  test_size_percent: 0.2
+
+
+DataGenerator:
+    batch_size: 32
+    Numscorer: 2
+    
+Callbacks:
+    callbacks_metrics: "val_loss"
+    patience: 5
+    epochs: 100
+    
+Model:
+  !GrayAreaDL:UTimeF
+    metrics:
+      - !tf:TruePositives {name: 'tp'}
+      - !tf:FalsePositives {name: 'fp'}
+      - !tf:TrueNegatives {name: 'tn'}
+      - !tf:FalseNegatives {name: 'fn'}
+      - !tf:BinaryAccuracy {name: 'accuracy'}
+      - !tf:Precision {name: 'precision'}
+      - !tf:Recall {name: 'recall'}
+      - !tf:AUC {name: 'auc'}
+      - !tf:AUC {name: 'prc', curve: 'PR'}
+      - !tfa:F1Score {name: "F1score", num_classes: 1, threshold: 0.5, average: "micro"}
+    hyperparams:
+      optimizer:
+        !tf:Adam
+          learning_rate: 0.001

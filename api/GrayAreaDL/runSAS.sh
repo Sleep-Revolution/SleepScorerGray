@@ -1,0 +1,1 @@
+python ./src/run/run.py ./conf/testConfSAS.yaml
