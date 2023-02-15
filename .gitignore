@@ -2,3 +2,4 @@
 /api/GrayAreaDL/TmpData/
 /api/GrayAreaDL/TmpPredict/
 *.ipynb_checkpoints
+/api/__pycache__/
