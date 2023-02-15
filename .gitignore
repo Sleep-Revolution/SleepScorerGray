@@ -2,4 +2,3 @@
 /api/GrayAreaDL/TmpData/
 /api/GrayAreaDL/TmpPredict/
 *.ipynb_checkpoints
-*.vscode
