@@ -1,4 +1,5 @@
 /api/GrayAreaDL/logs/E1M2_iqr_std_2021-11-04_135554/
 /api/GrayAreaDL/TmpData/
 /api/GrayAreaDL/TmpPredict/
-.ipynb_checkpoints
+*.ipynb_checkpoints
+*.vscode
