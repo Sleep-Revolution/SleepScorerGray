@@ -8,6 +8,13 @@
         <!-- Bootstrap CSS -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 
+        <style>
+            .card:hover{
+            transform: scale(1.01);
+            box-shadow: 0 10px 20px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.06);
+}
+        </style>
+
         <title>Sleep Scorer by Sleep Revolution</title>
     </head>
     <body>
@@ -15,17 +22,19 @@
 
           <nav class="navbar navbar-expand-md navbar-light bg-light">
             <div class="container-fluid">
-              <a class="navbar-brand" href="#">
+
+                <a class="navbar-brand" href="index.html">
                     <img src="img/icon.png" alt="" width="30" height="24" class="d-inline-block align-text-top">
                     <b>SleepScorer</b> by Sleep Revolution
-              </a>
+                </a>
+
               <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarTogglerDemo02" aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
               </button>
               <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                   <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="#">Home</a>
+                    <a class="nav-link" aria-current="page" href="#">Home</a>
                   </li>
                   <li class="nav-item">
                     <a class="nav-link" href="#">About</a>
@@ -35,46 +44,53 @@
                   </li>
                 </ul>
                 <div class="d-flex">
-                  <a href="download.html" class="btn btn-primary">Download desktop client</button>
-                </a>
+                  <button class="btn btn-primary">Download desktop client</button>
                 </div>
               </div>
             </div>
           </nav>
-          
-
-          <div class="container col-xxl-8 px-1 py-1">
-            <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
-              <div class="col-10 col-sm-8 col-md-6">
-                <img src="img/bootstrap-themes.png" class="d-block mx-lg-auto img-fluid" alt="Bootstrap Themes" loading="lazy" width="700" height="500">
-              </div>
-              <div class="col-md-6">
-                <h3 class="display-6 fw-bold lh-1 mb-3">Sleep stages with gray areas</h3>
-                <p class="lead">Streamlining the work of sleep specialists: Upload recordings collected from PSG or self applied PSG. The recordings are securely analyzed and scored, providing the user with accurate sleep stages and identifying areas where a human expert needs to double check. </p>
-                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
-                  <button type="button" class="btn btn-secondary btn-lg px-4 me-md-2">How it works</button>
-                </div>
-              </div>
-            </div>
-          </div>
 
 
         <div class="container">
+            <div class="row mt-5">
+                <div class="col-md-5">
+                    <h3>Download desktop client</h3>
+                    <p>Access the Sleep Revolution SleepScorer on Windows or Linux desktops with the native application.</p>
+                </div>
+                <div class="col-md-7">
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <img width=90% src="img/windows-icon.svg">
+                                </div>
+                                <div class="col-sm-9">
+                                    <h5 class="card-title">Windows</h5>
+                                    <p class="card-text">Support for Windows 8, 10 and 11</p>
+                                </div>
+                            </div>
+                          
+                        </div>
+                      </div>
+
+                      <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <img width=90% src="img/linux.svg">
+                                </div>
+                                <div class="col-sm-9">
+                                    <h5 class="card-title">Windows</h5>
+                                    <p class="card-text">Support for most distributions</p>
+                                </div>
+                            </div>
+                          
+                        </div>
+                      </div>
+                </div>
+            </div>
+            <h3></h3>
             
-            <h3>Upload a zip file</h3>
-            <form sandbox="allow-forms allow-scripts" action="http://127.0.0.1:8002/uploadfile" enctype="multipart/form-data" method="post" autocomplete="off">
-                <div class="bg-light p-5 rounded-lg m-3">
-                    <label for="file" class="form-label">File Input</label>
-                    <input class="form-control" type="file" id="file" name="file">
-                </div>
-                <div class="bg-light rounded-lg m-3">
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-primary" type="button submit"><i class="bx bxs-cloud-upload"
-                                style="font-size:1.4em;"></i> Submit</button>
-                    </div>
-                </div>
-                </div>
-            </form>
             
         </div>
 

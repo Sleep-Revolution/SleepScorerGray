@@ -62,7 +62,7 @@
         <div class="container">
             
             <h3>Upload a zip file</h3>
-            <form action="http://127.0.0.1:8002/uploadfile" enctype="multipart/form-data" method="post" autocomplete="off">
+            <form sandbox="allow-forms allow-scripts" action="http://127.0.0.1:8002/uploadfile" enctype="multipart/form-data" method="post" autocomplete="off">
                 <div class="bg-light p-5 rounded-lg m-3">
                     <label for="file" class="form-label">File Input</label>
                     <input class="form-control" type="file" id="file" name="file">
