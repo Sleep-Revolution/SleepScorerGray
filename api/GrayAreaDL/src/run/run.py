@@ -228,7 +228,7 @@ def main():
                 filepath = os.path.join(run_pipeline.paramsPred["PredPath"],run_pipeline.generator.Predictors_.allEdf[i]+".csv")
                 
                 Y_MM = np.fromiter(map(lambda x : GenerateMultiSamp(x,E=1000),y[i,:,:]), dtype=np.dtype((int, len(run_pipeline.SCORE_DICT))))
-                MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=0.3)
+                MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=float(run_pipeline.paramsPred["GrayAreaThreshold"]))
                 MMM.fit(Y_MM)
                 Z_G = MMM.clusters
                 Z_G = (Z_G != (-1))*1
@@ -241,7 +241,7 @@ def main():
                     warnings[k] = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
                     results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
                 
-                pd.DataFrame(results,columns = [run_pipeline.SCORE_DICT.keys(),"GrayArea"]+["Warning "+k for k in list(warnings.keys())]).to_csv(filepath)
+                pd.DataFrame(results,columns = list(run_pipeline.SCORE_DICT.keys())+["GrayArea"]+["Warning "+k for k in list(warnings.keys())]).to_csv(filepath)
             
     else:
         run_pipeline = RunTrain(yaml_path)
