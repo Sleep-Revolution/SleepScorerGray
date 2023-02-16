@@ -3,7 +3,6 @@ import numpy as np
 import sys
 import os
 import pickle
-sys.path.insert(0, os.path.abspath("/main/home/gabrielj@sleep.ru.is/GrayAreaDL/"))
 
 ############# PACKAGE FOR TEST #############
 from sklearn.pipeline import Pipeline

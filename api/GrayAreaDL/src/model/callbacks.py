@@ -2,7 +2,7 @@ from tensorflow import keras
 import seaborn as sns
 import numpy as np
 import os
-os.environ["QT_LOGGING_RULES"] = '*.debug=false'
+# os.environ["QT_LOGGING_RULES"] = '*.debug=false'
 from matplotlib import pyplot as plt
 
 def generate_callbacks(log_dir, patience, path_weights, metric_monitored="loss") -> list:

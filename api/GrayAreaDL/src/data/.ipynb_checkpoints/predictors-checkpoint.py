@@ -60,7 +60,7 @@ class Predictors:
             
             signals.append(signals_tmp)
         
-        print(edf.info['meas_date']+timedelta(seconds=times[0]),edf.info['meas_date']+timedelta(seconds=times[-1]))
+        # print(edf.info['meas_date']+timedelta(seconds=times[0]),edf.info['meas_date']+timedelta(seconds=times[-1]))
         ########### Sanity checks #############
         if self.times_stamps != times[1]:
             print(f"WARNING: data resampled from {1/times[1]} to {1/self.times_stamps} HZ")

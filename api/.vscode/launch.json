@@ -31,6 +31,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
+            "args" :["./conf/testPredict.yaml","pred"],
             "justMyCode": true
         }
     ]

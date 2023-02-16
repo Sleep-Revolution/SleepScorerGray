@@ -92,7 +92,7 @@ class DataGeneratorPred(keras.utils.Sequence):
         self.random_state = random_state
         self.Predictors_ = Predictors(pathEDF,signalsNames=signalNames)
         self.list_id = self.Predictors_.getallpart()
-        
+        # self.list_id = [1]
         self.on_epoch_end()
 
     def __len__(self):
@@ -109,9 +109,7 @@ class DataGeneratorPred(keras.utils.Sequence):
     def __getitem__(self, index):
         X = self.Predictors_.Load(index).signal_dict["Signal"]
         if not self.pipeline is None:
-            print(X[0].shape)
             X = [self.pipeline.transform(x) for x in X]
-            print(X[0].shape)
         return X
 
 if __name__ == "__main__":

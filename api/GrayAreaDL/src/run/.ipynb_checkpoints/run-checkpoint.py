@@ -1,7 +1,8 @@
 import os
 import logging
 import sys
-sys.path.insert(0, os.path.abspath("/main/home/gabrielj@sleep.ru.is/GrayAreaDL/"))
+sys.path.insert(0,os.getcwd())
+# sys.path.insert(0, os.path.join(os.getcwd(),"./SleepScorerGray/api/GrayAreaDL"))
 
 from datetime import datetime
 from pathlib import Path
@@ -13,14 +14,20 @@ import yaml
 from sklearn.model_selection import ShuffleSplit
 from sklearn.pipeline import Pipeline
 
+
 from src.data.predictors import *
 from src.data.prediction import *
 from src.data.datagenerator import *
+
 from src.preprocessing.harmonisation import *
+
 from src.model.callbacks import *
 from src.model.model import *
+from src.model.mixturemodels import *
+
 from src.utils.yamlutils import *
 from src.utils.save_xp import *
+
 
 from tensorflow import keras
 import tensorflow_addons
@@ -183,9 +190,18 @@ class RunPredict:
     def predict(self):
         logging.info("Start Prediction")
         # steps = self.nb_samples
-        return self.model.predict(self.generator,steps =  self.nb_samples)
+        return self.model.predict(self.generator,steps =  1)
 
+def GenerateMultiSamp(x,E):
+    x = np.array([x]).astype(np.float64)
+    if sum(x.sum(axis=1)) != 1:
+        x[0,:] = x[0,:]/sum(x[0,:])
 
+    gen = GenMixtSampleFromCatEns(E,x)
+    X,Z = gen.generate(2,distribution="Multinomial")
+    return X[0,:].tolist()
+    
+    
 def main():
     # logging.basicConfig(level=logging.DEBUG)
     yaml_path = str(sys.argv[1])
@@ -210,8 +226,22 @@ def main():
                 print("Dir cleared successfully")
             for i in range(y.shape[0]):
                 filepath = os.path.join(run_pipeline.paramsPred["PredPath"],run_pipeline.generator.Predictors_.allEdf[i]+".csv")
-                pd.DataFrame(y[i,:,:],columns = list(run_pipeline.SCORE_DICT.keys())).to_csv(filepath)
-            
+                
+                Y_MM = np.fromiter(map(lambda x : GenerateMultiSamp(x,E=1000),y[i,:,:]), dtype=np.dtype((int, len(run_pipeline.SCORE_DICT))))
+                MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=0.3)
+                MMM.fit(Y_MM)
+                Z_G = MMM.clusters
+                Z_G = (Z_G != (-1))*1
+                warnings = {"10":[],"30":[],"60":[],"120":[]}
+                results = np.concatenate((y[i,:,:],Z_G[np.newaxis].T),axis=1)
+                for k in list(warnings.keys()):
+                    Nrow = int(Z_G.shape[0]/(int(k)*2))
+                    Ncol = int(int(k)*2)
+                    tmp = Z_G.reshape((Nrow,Ncol)).sum(axis=1)
+                    warnings[k] = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
+                    results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
+                
+                pd.DataFrame(results,columns = [run_pipeline.SCORE_DICT.keys(),"GrayArea"]+["Warning "+k for k in list(warnings.keys())]).to_csv(filepath)
             
     else:
         run_pipeline = RunTrain(yaml_path)
