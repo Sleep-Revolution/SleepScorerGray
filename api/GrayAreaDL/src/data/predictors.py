@@ -32,6 +32,7 @@ class Predictors:
         self.epoch_time= epoch_time
         self.signalsNames=signalsNames
         self.maxHours = maxHours
+        
     def Load(self,partID: int,signalsNames=None,**kwargs):
         if not (signalsNames is None):
             self.signalsNames=signalsNames

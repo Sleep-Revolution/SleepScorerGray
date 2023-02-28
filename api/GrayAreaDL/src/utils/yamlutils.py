@@ -50,5 +50,5 @@ if __name__ == "__main__":
     # a = (yaml.load(s, Loader=yaml.Loader))
     # print(type(a))
 
-    config = yaml.load(open("params/01_empty_test.yaml", "r"), Loader=get_bepsia_conf_loader())
+    config = yaml.load(open("params/01_empty_test.yaml", "r"), Loader=get_conf_loader())
     print(config)

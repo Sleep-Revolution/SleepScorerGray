@@ -2,18 +2,20 @@ import os
 import logging
 import sys
 sys.path.insert(0,os.getcwd())
-# sys.path.insert(0, os.path.join(os.getcwd(),"./SleepScorerGray/api/GrayAreaDL"))
-
+# sys.path.insert(0, os.path.join(os.getcwd(),"./api/GrayAreaDL"))
 from datetime import datetime
 from pathlib import Path
 import copy
+
+from joblib import Parallel, delayed
+from multiprocessing import cpu_count
 
 import numpy as np
 import yaml
 
 from sklearn.model_selection import ShuffleSplit
 from sklearn.pipeline import Pipeline
-
+from sklearn.preprocessing import normalize
 
 from src.data.predictors import *
 from src.data.prediction import *
@@ -181,29 +183,80 @@ class RunPredict:
         self.model = keras.models.load_model(paramsPred["ModelPath"])
         print(self.model.summary())
         logging.info("Model Loaded")
-        
-        self.generator = DataGeneratorPred(paramsPred["EDFPath"],params["Data"]["Predictors"].signalsNames,pipeline=self.pipeline_prepro)
-        self.nb_samples = len(self.generator.list_id)
         self.paramsPred = paramsPred
+        self.nsignals = len(self.paramsPred["SignalChannels"])
         
-        
+        if self.paramsPred["Ensemble"]:
+            self.generator = DataGeneratorPred(self.paramsPred["EDFPath"],
+                                        self.paramsPred["SignalChannels"],
+                                        pipeline=self.pipeline_prepro,
+                                        ensemble = self.paramsPred["Ensemble"])
+        else:
+            self.generator = DataGeneratorPred(self.paramsPred["EDFPath"],
+                                self.paramsPred["SignalChannels"],
+                                pipeline=self.pipeline_prepro)
+        self.nfile = len(self.generator.list_id)
+    
     def predict(self):
         logging.info("Start Prediction")
-        # steps = self.nb_samples
-        return self.model.predict(self.generator,steps =  1)
+        
+        if self.nfile>1:
+            num_workers = 10
+        else:
+            num_workers = 1
+        
+        
+        Y = self.model.predict(self.generator,steps = self.nfile,use_multiprocessing=True,workers = num_workers)
 
-def GenerateMultiSamp(x,E):
-    x = np.array([x]).astype(np.float64)
-    if sum(x.sum(axis=1)) != 1:
-        x[0,:] = x[0,:]/sum(x[0,:])
+        if isinstance(Y,(np.ndarray)):
+            Y = Y.tolist()
 
-    gen = GenMixtSampleFromCatEns(E,x)
-    X,Z = gen.generate(2,distribution="Multinomial")
-    return X[0,:].tolist()
+        return Y
+    
+    def PredictToCSV(self,file):
+        i = file
+
+        if self.paramsPred["Ensemble"]:
+            for h in range(self.nsignals):
+                Y_tmp = np.array(y[(i*self.nsignals)+h])
+                if h == 0:
+                    Y = np.array(y[(i*self.nsignals)+h])
+                Y += np.array(y[(i*self.nsignals)+h])
+            Y = normalize(Y,norm="l1")
+        else:
+            Y = normalize(np.array(y[i]),norm="l1")
+        Hp_pred = np.argmax(Y,axis=1)
+        filepath = os.path.join(self.paramsPred["PredPath"],self.generator.Predictors_.allEdf[i]+".csv")
+
+        Y_MM = np.fromiter(map(lambda x : self.GenerateMultiSamp(x,E=1000),Y), dtype=np.dtype((int, len(self.SCORE_DICT))))
+        MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=float(self.paramsPred["GrayAreaThreshold"]))
+        MMM.fit(Y_MM)
+        Z_G = MMM.clusters
+        Z_G = (Z_G != (-1))*1
+        warnings = {"10":[],"30":[],"60":[],"120":[]}
+        results = np.concatenate((Hp_pred[np.newaxis].T,Y,Z_G[np.newaxis].T),axis=1)
+        for k in list(warnings.keys()):
+            Nrow = int(Z_G.shape[0]/(int(k)*2))
+            Ncol = int(int(k)*2)
+            tmp = Z_G.reshape((Nrow,Ncol)).sum(axis=1)
+            warnings[k] = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
+            results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
+
+        pd.DataFrame(results,columns = ["Hypno_pred"]+list(self.SCORE_DICT.keys())+["GrayArea"]+["Warning "+k for k in list(warnings.keys())]).to_csv(filepath)
+
+    def GenerateMultiSamp(self,x,E):
+        x = np.array([x]).astype(np.float64)
+        if sum(x.sum(axis=1)) != 1:
+            x[0,:] = x[0,:]/sum(x[0,:])
+
+        gen = GenMixtSampleFromCatEns(E,x)
+        X,Z = gen.generate(2,distribution="Multinomial")
+        return X[0,:].tolist()
     
     
 def main():
     # logging.basicConfig(level=logging.DEBUG)
+    # os.chdir(os.path.join(os.getcwd(),"./api/GrayAreaDL/"))
     yaml_path = str(sys.argv[1])
     
     if len(sys.argv)>2:
@@ -224,24 +277,13 @@ def main():
                         print(f"WARNING: {e}")
                         
                 print("Dir cleared successfully")
-            for i in range(y.shape[0]):
-                filepath = os.path.join(run_pipeline.paramsPred["PredPath"],run_pipeline.generator.Predictors_.allEdf[i]+".csv")
-                
-                Y_MM = np.fromiter(map(lambda x : GenerateMultiSamp(x,E=1000),y[i,:,:]), dtype=np.dtype((int, len(run_pipeline.SCORE_DICT))))
-                MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=float(run_pipeline.paramsPred["GrayAreaThreshold"]))
-                MMM.fit(Y_MM)
-                Z_G = MMM.clusters
-                Z_G = (Z_G != (-1))*1
-                warnings = {"10":[],"30":[],"60":[],"120":[]}
-                results = np.concatenate((y[i,:,:],Z_G[np.newaxis].T),axis=1)
-                for k in list(warnings.keys()):
-                    Nrow = int(Z_G.shape[0]/(int(k)*2))
-                    Ncol = int(int(k)*2)
-                    tmp = Z_G.reshape((Nrow,Ncol)).sum(axis=1)
-                    warnings[k] = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
-                    results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
-                
-                pd.DataFrame(results,columns = list(run_pipeline.SCORE_DICT.keys())+["GrayArea"]+["Warning "+k for k in list(warnings.keys())]).to_csv(filepath)
+            if run_pipeline.nfile>1:
+                num_workers = 10
+                Parallel(n_jobs=num_workers)(delayed(run_pipeline.PredictToCSV)(file) for file in range(run_pipeline.nfile))
+            else:
+                run_pipeline.PredictToCSV(0)
+
+
             
     else:
         run_pipeline = RunTrain(yaml_path)

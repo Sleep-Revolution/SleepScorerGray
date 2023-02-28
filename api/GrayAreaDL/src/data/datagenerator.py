@@ -84,7 +84,7 @@ class DataGeneratorPred(keras.utils.Sequence):
     """
     Class object creating a keras generator able to load and preprocess dataset object.
     """
-    def __init__(self, pathEDF, signalNames,pipeline=None,shuffle=False, random_state=17):
+    def __init__(self, pathEDF, signalNames,pipeline=None,shuffle=False, random_state=17,ensemble=False):
         self.pathEDF = pathEDF
         self.signalNames = signalNames
         self.pipeline = pipeline
@@ -92,6 +92,8 @@ class DataGeneratorPred(keras.utils.Sequence):
         self.random_state = random_state
         self.Predictors_ = Predictors(pathEDF,signalsNames=signalNames)
         self.list_id = self.Predictors_.getallpart()
+        # self.list_id = [1,5,7]
+        self.ensemble=ensemble
         # self.list_id = [1]
         self.on_epoch_end()
 
@@ -102,14 +104,17 @@ class DataGeneratorPred(keras.utils.Sequence):
     def on_epoch_end(self):
         'Updates indexes after each epoch'
         np.random.seed(self.random_state)
-        self.indexes = np.arange(0,len(self.list_id))
+        self.indexes = np.arange(1,len(self.list_id)+1)
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
     def __getitem__(self, index):
-        X = self.Predictors_.Load(index).signal_dict["Signal"]
+        self.currentSignal = self.Predictors_.Load(index)
+        X = self.currentSignal.signal_dict["Signal"]
         if not self.pipeline is None:
             X = [self.pipeline.transform(x) for x in X]
+        if self.ensemble:
+            X = np.array(X)[:,0,:]
         return X
 
 if __name__ == "__main__":

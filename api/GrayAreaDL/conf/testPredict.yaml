@@ -1,4 +1,8 @@
 ModelPath: /main/home/gabrielj@sleep.ru.is/GrayAreaDL/logs/E1M2_iqr_std_2021-11-04_135554/
 EDFPath: /datasets/10x100/sas/EDF exports/
-PredPath: ./TmpPredict/
+PredPath: ./TmpPredictTMP/
+SignalChannels: ['E1-E4']
+#['AF3-E3E4', 'AF4-E3E4', 'AF7-E3E4', 'AF8-E3E4', 'E1-E4', 'E2-E3', 'E2-AFZ', 'E3-AFZ']
 GrayAreaThreshold: 0.3
+Ensemble: False
+ALL: False

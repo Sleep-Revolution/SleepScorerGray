@@ -2,18 +2,20 @@ import os
 import logging
 import sys
 sys.path.insert(0,os.getcwd())
-# sys.path.insert(0, os.path.join(os.getcwd(),"./SleepScorerGray/api/GrayAreaDL"))
-
+# sys.path.insert(0, os.path.join(os.getcwd(),"./api/GrayAreaDL"))
 from datetime import datetime
 from pathlib import Path
 import copy
+
+from joblib import Parallel, delayed
+from multiprocessing import cpu_count
 
 import numpy as np
 import yaml
 
 from sklearn.model_selection import ShuffleSplit
 from sklearn.pipeline import Pipeline
-
+from sklearn.preprocessing import normalize
 
 from src.data.predictors import *
 from src.data.prediction import *
@@ -34,8 +36,6 @@ import tensorflow_addons
 import pandas as pd
 import gc
 ############################ CONF POSSIBLE ############################
-
-# python .\src\run\runAEWea.py .\params\01_alberta_VQVAESatWea.yaml
 
 class RunTrain:
     """
@@ -156,7 +156,7 @@ class RunTrain:
 
 
 class RunPredict:
-    def __init__(self, CONFPATH, ):
+    def __init__(self, CONFPATH):
         self.SCORE_DICT = {
             'Wake': 0.,
             'N1': 1.,
@@ -175,35 +175,119 @@ class RunPredict:
         with open(os.path.join(paramsPred["ModelPath"],confyml)) as file:
             params = yaml.load(file, Loader=loader)
         self.pipeline_prepro = Pipeline([(str(estimator), estimator) for estimator in params["Preprocessing"]])
+
         
         with open(CONFPATH) as f:
             config = yaml.load(f, Loader=loader)
         self.model = keras.models.load_model(paramsPred["ModelPath"])
         print(self.model.summary())
         logging.info("Model Loaded")
-        
-        self.generator = DataGeneratorPred(paramsPred["EDFPath"],params["Data"]["Predictors"].signalsNames,pipeline=self.pipeline_prepro)
-        self.nb_samples = len(self.generator.list_id)
         self.paramsPred = paramsPred
+        self.nsignals = len(self.paramsPred["SignalChannels"])
+        self.all = self.paramsPred.get("ALL",False)
+        self.ensemble = self.paramsPred.get("Ensemble",False)
         
+        if self.ensemble:
+            self.generator = DataGeneratorPred(self.paramsPred["EDFPath"],
+                                        self.paramsPred["SignalChannels"],
+                                        pipeline=self.pipeline_prepro,
+                                        ensemble = self.ensemble)
+        else:
+            self.generator = DataGeneratorPred(self.paramsPred["EDFPath"],
+                                self.paramsPred["SignalChannels"],
+                                pipeline=self.pipeline_prepro)
+        self.nfile = len(self.generator.list_id)
+    
+    def PredictToCSV(self,file):
+        i = file
+        y = self.model.predict(self.generator.__getitem__(i),steps = 1)
+        times = self.generator.currentSignal.metadata["TimeFromStart"]
+        nepochs = y.shape[1]
+        lenSignal = nepochs*int(30/self.generator.Predictors_.times_stamps)
         
-    def predict(self):
-        logging.info("Start Prediction")
-        # steps = self.nb_samples
-        return self.model.predict(self.generator,steps =  1)
+        if lenSignal != times.shape[0]:
+            times = times[:lenSignal]
 
-def GenerateMultiSamp(x,E):
-    x = np.array([x]).astype(np.float64)
-    if sum(x.sum(axis=1)) != 1:
-        x[0,:] = x[0,:]/sum(x[0,:])
+        times = times.reshape((nepochs,int(30/self.generator.Predictors_.times_stamps)))
+        times = times[:,0]
 
-    gen = GenMixtSampleFromCatEns(E,x)
-    X,Z = gen.generate(2,distribution="Multinomial")
-    return X[0,:].tolist()
+        if isinstance(y,(np.ndarray)):
+            y = y.tolist()
+
+        if self.ensemble:
+            for h in range(self.nsignals):
+                Y_tmp = np.array(y[h])
+                if h == 0:
+                    Y = np.array(y[h])
+                Y += np.array(y[h])
+            Y = normalize(Y,norm="l1")
+        else:
+            Y = normalize(np.array(y[0]),norm="l1")
+        Hp_pred = np.argmax(Y,axis=1)
+        filepath = os.path.join(self.paramsPred["PredPath"],self.generator.Predictors_.allEdf[i-1]+".csv")
+
+        Y_MM = np.fromiter(map(lambda x : self.GenerateMultiSamp(x,E=1000),Y), dtype=np.dtype((int, len(self.SCORE_DICT))))
+        MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=float(self.paramsPred["GrayAreaThreshold"]))
+        MMM.fit(Y_MM)
+        Z_G = MMM.clusters
+        Z_G = (Z_G != (-1))*1
+        warnings = {"10":[],"30":[],"60":[],"120":[]}
+        results = np.concatenate((Hp_pred[np.newaxis].T,Y,Z_G[np.newaxis].T),axis=1)
+        for k in list(warnings.keys()):
+
+            if Z_G.shape[0] % (int(k)*2) != 0:
+                Nrow = int(Z_G.shape[0] / (int(k)*2))+1
+                padd = Nrow*(int(k)*2)
+                Z_G_tmp = np.zeros(padd)
+                Z_G_tmp[:Z_G.shape[0]] = Z_G
+
+                Nrow = int(Z_G_tmp.shape[0]/(int(k)*2))
+                Ncol = int(int(k)*2)
+                tmp = Z_G_tmp.reshape((Nrow,Ncol)).sum(axis=1)
+                tmp = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
+                warnings[k] = tmp[:Z_G.shape[0]]
+                results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
+
+            else:
+                Nrow = int(Z_G.shape[0]/(int(k)*2))
+                Ncol = int(int(k)*2)
+                tmp = Z_G.reshape((Nrow,Ncol)).sum(axis=1)
+                warnings[k] = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
+                results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
+        results = np.concatenate((times[np.newaxis].T,results),axis=1)
+        print(f"Save: {filepath}")
+        print("------------------------------------------------------------ END PREDICTION -------------------------------------------------------------")
+        if ((self.all) & (self.ensemble)):
+            columns = ["Times","Ens_Hypno"]+["Ens_"+k for k in list(self.SCORE_DICT.keys())]+["GrayArea"]+["Warning_"+k for k in list(warnings.keys())]
+            DF = pd.DataFrame(results,columns = columns)
+            for h in range(self.nsignals):
+                Y_tmp = np.array(y[h])
+                Y_tmp = normalize(Y_tmp,norm="l1")
+                Hp_pred = np.argmax(Y_tmp,axis=1)
+                Y_tmp = np.concatenate((Hp_pred[np.newaxis].T,Y_tmp),axis=1)
+                columns = [self.paramsPred["SignalChannels"][h]+"_Hypno"]+[self.paramsPred["SignalChannels"][h]+"_"+k for k in list(self.SCORE_DICT.keys())]
+                Y_tmp = pd.DataFrame(Y_tmp,columns = columns)
+                DF = pd.concat((DF,Y_tmp),axis = 1)
+            
+            DF.to_csv(filepath)
+        else:
+            columns = ["Times",self.paramsPred["SignalChannels"][0]+"_Hypno"]+[self.paramsPred["SignalChannels"][0]+"_"+k for k in list(self.SCORE_DICT.keys())]+["GrayArea"]+["Warning_"+k for k in list(warnings.keys())]
+            DF = pd.DataFrame(results,columns = columns)
+            DF.to_csv(filepath)
+
+    def GenerateMultiSamp(self,x,E):
+        x = np.array([x]).astype(np.float64)
+        if sum(x.sum(axis=1)) != 1:
+            x[0,:] = x[0,:]/sum(x[0,:])
+
+        gen = GenMixtSampleFromCatEns(E,x)
+        X,Z = gen.generate(2,distribution="Multinomial")
+        return X[0,:].tolist()
     
     
 def main():
     # logging.basicConfig(level=logging.DEBUG)
+    # os.chdir(os.path.join(os.getcwd(),"./api/GrayAreaDL/"))
     yaml_path = str(sys.argv[1])
     
     if len(sys.argv)>2:
@@ -212,7 +296,6 @@ def main():
             run_pipeline.run_model()
         else:
             run_pipeline = RunPredict(yaml_path)
-            y = run_pipeline.predict()
             listFile = os.listdir(run_pipeline.paramsPred["PredPath"])
             if len(listFile)==0:
                 print("Empty Dir") 
@@ -224,24 +307,18 @@ def main():
                         print(f"WARNING: {e}")
                         
                 print("Dir cleared successfully")
-            for i in range(y.shape[0]):
-                filepath = os.path.join(run_pipeline.paramsPred["PredPath"],run_pipeline.generator.Predictors_.allEdf[i]+".csv")
-                
-                Y_MM = np.fromiter(map(lambda x : GenerateMultiSamp(x,E=1000),y[i,:,:]), dtype=np.dtype((int, len(run_pipeline.SCORE_DICT))))
-                MMM = MixtModel(E=1000,distribution="Multinomial",filtered=True,threshold=float(run_pipeline.paramsPred["GrayAreaThreshold"]))
-                MMM.fit(Y_MM)
-                Z_G = MMM.clusters
-                Z_G = (Z_G != (-1))*1
-                warnings = {"10":[],"30":[],"60":[],"120":[]}
-                results = np.concatenate((y[i,:,:],Z_G[np.newaxis].T),axis=1)
-                for k in list(warnings.keys()):
-                    Nrow = int(Z_G.shape[0]/(int(k)*2))
-                    Ncol = int(int(k)*2)
-                    tmp = Z_G.reshape((Nrow,Ncol)).sum(axis=1)
-                    warnings[k] = np.tile(tmp,(Ncol,1)).T.reshape(Ncol*Nrow)
-                    results = np.concatenate((results,warnings[k][np.newaxis].T),axis=1)
-                
-                pd.DataFrame(results,columns = list(run_pipeline.SCORE_DICT.keys())+["GrayArea"]+["Warning "+k for k in list(warnings.keys())]).to_csv(filepath)
+            # if run_pipeline.nfile>1:
+            #     num_workers = 2
+            #     Parallel(n_jobs=num_workers)(delayed(run_pipeline.PredictToCSV)(file) for file in range(run_pipeline.nfile))
+            # else:
+            #     run_pipeline.PredictToCSV(0)
+
+            
+            for file in range(1,run_pipeline.nfile+1):
+                print("-------------------------------------------------------- BEGIN PREDICTION -----------------------------------------------------------------")
+                run_pipeline.PredictToCSV(file)
+
+
             
     else:
         run_pipeline = RunTrain(yaml_path)
