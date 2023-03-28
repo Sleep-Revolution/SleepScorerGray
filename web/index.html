@@ -65,21 +65,132 @@
         <div class="container">
             
             <h3>Upload a zip file</h3>
-            <form sandbox="allow-forms allow-scripts" action="http://127.0.0.1:8000/uploadfile" enctype="multipart/form-data" method="post" autocomplete="off">
+            <form action="http://127.0.0.1:8000/uploadfile" enctype="multipart/form-data" method="post" autocomplete="off">
                 <div class="bg-light p-5 rounded-lg m-3">
                     <label for="file" class="form-label">File Input</label>
                     <input class="form-control" type="file" id="file" name="file">
                 </div>
                 <div class="bg-light rounded-lg m-3">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-primary" type="button submit"><i class="bx bxs-cloud-upload"
+                        <button id="submit" class="btn btn-primary" type="button submit" onclick="Reveal()"><i class="bx bxs-cloud-upload"
                                 style="font-size:1.4em;"></i> Submit</button>
                     </div>
                 </div>
                 </div>
-            </form>
-            
-        </div>
+             </form>
+
+            <div id="loadarea" class="bg-light rounded-lg m-3" style="display: none;">
+              <div class="d-grid gap-2">
+                  <input type="button" id="load-button" value="Plot Data" onclick="loadData()" class="btn btn-primary"><i class="bx bxs-cloud-upload"
+                  style="font-size:1.4em;"></i> 
+                  <div id="chart" style="display: none;"></div>
+              </div>
+            </div>
+          </div>
+
+    <script>
+      $('#chart-container').hide();
+      function Reveal() {
+        var y = document.getElementById("loadarea");
+        y.style.display = "block";
+
+      }
+
+      function loadData() {
+        $.ajax({
+          url: "http://127.0.0.1:8000/Plotdata",
+          type: "GET",
+          contentType: "application/json; charset=utf-8",
+          dataType: "json",
+          success: function(Plotdata) {
+            Hypnodensity(Plotdata);
+          },
+          error: function(xhr, status, error) {
+                    alert('Error loading data: ' + error);
+                }
+        });
+      }
+      function Hypnodensity(data) {
+        var trace1 = {
+          x: data.x,
+          y: data.Wake,
+          type: 'scatter',
+          name: 'Wake',
+          mode: 'lines',
+          line: {shape: 'linear'},
+        };
+        var trace2 = {
+          x: data.x,
+          y: data.N1,
+          type: 'scatter',
+          name: 'N1',
+          mode: 'lines',
+          line: {shape: 'linear'},
+        };
+        var trace3 = {
+          x: data.x,
+          y: data.N2,
+          type: 'scatter',
+          name: 'N2',
+          mode: 'lines',
+          line: {shape: 'linear'},
+        };
+        var trace4 = {
+          x: data.x,
+          y: data.N3,
+          type: 'scatter',
+          name: 'N3',
+          mode: 'lines',
+          line: {shape: 'linear'},
+        };
+        var trace5 = {
+          x: data.x,
+          y: data.REM,
+          type: 'scatter',
+          name: 'REM',
+          mode: 'lines',
+          line: {shape: 'linear'},
+        };
+        var trace6 = {
+          x: data.x,
+          y: data.GrayArea,
+          type: 'scatter',
+          name: 'GrayArea',
+          mode: 'lines',
+          fill: 'gray',
+          stackgroup: 'one',
+          line: {shape: 'vh'},
+        };
+        var trace7 = {
+          x: data.times,
+          y: data.E1E4,
+          type: 'scatter',
+          name: 'E1-E4',
+          mode: 'lines',
+          fill: 'blue',
+          stackgroup: 'one',
+          xaxis:"x2",
+          yaxis:"y2",
+          line: {shape: 'lines'},
+        };
+        var layout = {
+          title: 'Hypnodensity & Raw Signal',
+          font: {size: 18},
+          width: 1200,
+          height: 500,
+          colorway : ['#f3cec9', '#e7a4b6', '#cd7eaf', '#a262a9', '#6f4d96', 'gray',"blue"],
+          yaxis: {title: 'PROBABILITY'},
+          yaxis2: {title: 'E1-E4'},
+          xaxis: {title: 'EPOCH'},
+          xaxis2: {title: 'TIMES'},
+          grid: {rows: 2, columns: 1, pattern: 'independent'},
+        };
+        var config = {responsive: true}
+        var chartData = [trace1,trace2,trace3,trace4,trace5,trace6,trace7];
+        Plotly.newPlot('chart', chartData, layout,config);
+        $("#chart").show();
+      }
+    </script>
 
         
 
