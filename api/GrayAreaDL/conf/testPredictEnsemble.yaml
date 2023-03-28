@@ -4,3 +4,4 @@ PredPath: ./TmpPredict/
 SignalChannels: ['AF3-E3E4', 'AF4-E3E4', 'AF7-E3E4', 'AF8-E3E4', 'E1-E4', 'E2-E3', 'E2-AFZ', 'E3-AFZ']
 GrayAreaThreshold: 0.3
 Ensemble: True
+Type_study: "SAS"

@@ -29,3 +29,5 @@ if __name__ == "__main__":
     
     print(X.shape,PrePro.transform(X).shape)
     print(X,PrePro.transform(X))
+
+

@@ -3,6 +3,9 @@ import logging
 import sys
 sys.path.insert(0,os.getcwd())
 # sys.path.insert(0, os.path.join(os.getcwd(),"./api/GrayAreaDL"))
+# curl -X 'POST' 'http://130.208.209.67:80/nox-to-edf get_active_recording_time=false&get_all_scorings=false&export_scoring=true' -H 'accept: application/json' -H 'Content-Type: multipart/form-data' -F 'nox_zip=@sas3nightTestSmall.zip;type=application/x-zip-compressed' -o zipped_edf.zip
+# curl -X 'POST' 'http://130.208.209.67:80/nox-to-edf' -H 'accept: application/json' -H 'Content-Type: multipart/form-data' -F 'nox_zip=@sas3nightTestSmall.zip;type=application/x-zip-compressed' -o zipped_edf.zip
+
 from datetime import datetime
 from pathlib import Path
 import copy
@@ -186,21 +189,34 @@ class RunPredict:
         self.nsignals = len(self.paramsPred["SignalChannels"])
         self.all = self.paramsPred.get("ALL",False)
         self.ensemble = self.paramsPred.get("Ensemble",False)
+        self.type_study = self.paramsPred.get("Type_study","PSG")
         
         if self.ensemble:
             self.generator = DataGeneratorPred(self.paramsPred["EDFPath"],
                                         self.paramsPred["SignalChannels"],
                                         pipeline=self.pipeline_prepro,
-                                        ensemble = self.ensemble)
+                                        ensemble = self.ensemble,
+                                               type_study=self.type_study)
         else:
             self.generator = DataGeneratorPred(self.paramsPred["EDFPath"],
                                 self.paramsPred["SignalChannels"],
-                                pipeline=self.pipeline_prepro)
+                                pipeline=self.pipeline_prepro,
+                                               type_study=self.type_study)
         self.nfile = len(self.generator.list_id)
     
+    #################################     UNCOMMENT  ONLY FOR VALIDATION          ###########################################################
+    # def MathiasValidation(self,file):
+    #     i = file
+    #     generator = MatiasGeneratorPred(self.paramsPred["EDFPath"])
+    #     y = self.model.predict(generator.__getitem__(i),steps = 1)
+    #     return y
+    ###################################################################################################################
+
     def PredictToCSV(self,file):
         i = file
         y = self.model.predict(self.generator.__getitem__(i),steps = 1)
+        Y = y.copy()
+        # print("After prediction",y.shape)
         times = self.generator.currentSignal.metadata["TimeFromStart"]
         nepochs = y.shape[1]
         lenSignal = nepochs*int(30/self.generator.Predictors_.times_stamps)
@@ -211,19 +227,40 @@ class RunPredict:
         times = times.reshape((nepochs,int(30/self.generator.Predictors_.times_stamps)))
         times = times[:,0]
 
-        if isinstance(y,(np.ndarray)):
-            y = y.tolist()
+        # if isinstance(y,(np.ndarray)):
+        #     y = y.tolist()
 
         if self.ensemble:
-            for h in range(self.nsignals):
-                Y_tmp = np.array(y[h])
-                if h == 0:
-                    Y = np.array(y[h])
-                Y += np.array(y[h])
-            Y = normalize(Y,norm="l1")
-        else:
-            Y = normalize(np.array(y[0]),norm="l1")
+            Y = np.sum(Y, axis = 0)
+            Y = Y/Y.sum(axis=1,keepdims=True)
+            Hp_pred = np.argmax(Y, axis=1)
+
         Hp_pred = np.argmax(Y,axis=1)
+
+
+        ####################### UNCOMMENT ONLY FOR VALIDATION ################################
+#         y_valid = self.MathiasValidation(i)
+
+#         gaborder = np.array(self.generator.currentSignal.metadata["SignalName"])
+#         matorder = np.array(['AF3-E3E4','AF4-E3E4','AF7-E3E4','AF8-E3E4','E3-AFZ','E2-AFZ','E1-E4','E2-E3'])
+
+#         all_ind = []
+#         for h in range(self.nsignals):
+#             k = np.where(gaborder[h]==matorder)[0][0]
+#             Y_tmp = np.array(y[h])
+#             Y_tmp = normalize(Y_tmp,norm="l1")
+#             Hp_predtmp = np.argmax(Y_tmp,axis=1)
+#             hg_final = np.argmax(y_valid[k,:,:], axis=1)
+#             ind = np.where(Hp_predtmp != hg_final)[0]
+#             all_ind.append(ind)
+#             print(gaborder[h],matorder[k],ind.shape)
+#         y_sum = np.sum(y_valid, axis = 0)
+#         hg_final = np.argmax(np.sum(y_valid, axis = 0), axis=1)
+#         ind = np.where(Hp_pred != hg_final)[0]
+#         print("Validation, Number of divergence=",len(ind))
+        ############################################################################################
+        
+        SignalName = np.array(self.generator.currentSignal.metadata["SignalName"])
         filepath = os.path.join(self.paramsPred["PredPath"],self.generator.Predictors_.allEdf[i-1]+".csv")
 
         Y_MM = np.fromiter(map(lambda x : self.GenerateMultiSamp(x,E=1000),Y), dtype=np.dtype((int, len(self.SCORE_DICT))))
@@ -265,14 +302,15 @@ class RunPredict:
                 Y_tmp = normalize(Y_tmp,norm="l1")
                 Hp_pred = np.argmax(Y_tmp,axis=1)
                 Y_tmp = np.concatenate((Hp_pred[np.newaxis].T,Y_tmp),axis=1)
-                columns = [self.paramsPred["SignalChannels"][h]+"_Hypno"]+[self.paramsPred["SignalChannels"][h]+"_"+k for k in list(self.SCORE_DICT.keys())]
+                columns = [SignalName[h]+"_Hypno"]+[SignalName[h]+"_"+k for k in list(self.SCORE_DICT.keys())]
                 Y_tmp = pd.DataFrame(Y_tmp,columns = columns)
                 DF = pd.concat((DF,Y_tmp),axis = 1)
-            
+            DF["Measure_date"] = self.generator.currentSignal.metadata["Measure date"]
             DF.to_csv(filepath)
         else:
-            columns = ["Times",self.paramsPred["SignalChannels"][0]+"_Hypno"]+[self.paramsPred["SignalChannels"][0]+"_"+k for k in list(self.SCORE_DICT.keys())]+["GrayArea"]+["Warning_"+k for k in list(warnings.keys())]
+            columns = ["Times",SignalName[0]+"_Hypno"]+[SignalName[0]+"_"+k for k in list(self.SCORE_DICT.keys())]+["GrayArea"]+["Warning_"+k for k in list(warnings.keys())]
             DF = pd.DataFrame(results,columns = columns)
+            DF["Measure_date"] = self.generator.currentSignal.metadata["Measure date"]
             DF.to_csv(filepath)
 
     def GenerateMultiSamp(self,x,E):

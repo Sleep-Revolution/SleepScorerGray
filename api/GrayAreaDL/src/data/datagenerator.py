@@ -4,8 +4,37 @@ import pickle
 import numpy as np
 import os
 from src.data.predictors import *
-#### Package for test
+import scipy.signal as scipy_signal
+#### Package & Functions for test
+import pandas as pd
+from scipy import io
+########################
 
+
+def resample_2(s):
+    """resample signal from fs_orig to fs_after hz."""
+    return scipy_signal.resample_poly(s, 8, 25)
+
+def iqr_standardize(s):
+    """IQR standardization for the signal."""
+    q75, q25 = np.percentile(s, [75 ,25])
+    iqr = q75 - q25
+    return (s - np.median(s)) / iqr
+
+def cheby2_highpass_filtfilt(s, fs, cutoff, order=5, rs=40.0):
+    """Chebyshev type1 highpass filtering.
+    
+    Args:
+        s: the signal
+        fs: sampling freq in Hz
+        cutoff: cutoff freq in Hz
+    Returns:
+        the filtered signal
+    """
+    nyq = 0.5 * fs
+    norm_cutoff = cutoff / nyq
+    sos = scipy_signal.cheby2(order, rs, norm_cutoff, btype='highpass', output='sos')
+    return scipy_signal.sosfiltfilt(sos, s)
 ####################
 
 
@@ -84,13 +113,13 @@ class DataGeneratorPred(keras.utils.Sequence):
     """
     Class object creating a keras generator able to load and preprocess dataset object.
     """
-    def __init__(self, pathEDF, signalNames,pipeline=None,shuffle=False, random_state=17,ensemble=False):
+    def __init__(self, pathEDF, signalNames,pipeline=None,shuffle=False, random_state=17,ensemble=False,type_study="PSG"):
         self.pathEDF = pathEDF
         self.signalNames = signalNames
         self.pipeline = pipeline
         self.shuffle = shuffle
         self.random_state = random_state
-        self.Predictors_ = Predictors(pathEDF,signalsNames=signalNames)
+        self.Predictors_ = Predictors(pathEDF,signalsNames=signalNames,type_study=type_study)
         self.list_id = self.Predictors_.getallpart()
         # self.list_id = [1,5,7]
         self.ensemble=ensemble
@@ -111,11 +140,146 @@ class DataGeneratorPred(keras.utils.Sequence):
     def __getitem__(self, index):
         self.currentSignal = self.Predictors_.Load(index)
         X = self.currentSignal.signal_dict["Signal"]
+
         if not self.pipeline is None:
             X = [self.pipeline.transform(x) for x in X]
-        if self.ensemble:
-            X = np.array(X)[:,0,:]
+        # if self.ensemble:
+        X = np.array(X)
+        X = np.swapaxes(X,2,1)
+        # print("Before predict:", X.shape,(X.shape[1]*(1/64))/self.Predictors_.epoch_time)
         return X
+    
+
+
+class DataGeneratorPredMatFile(keras.utils.Sequence):
+    """
+    Class object creating a keras generator able to load and preprocess dataset object.
+    """
+    def __init__(self, pathEDF,pathmat, signalNames,pipeline=None,shuffle=False, random_state=17,ensemble=False,type_study="PSG"):
+        self.pathEDF = pathEDF
+        self.pathmat = pathmat
+        self.signalNames = signalNames
+        self.pipeline = pipeline
+        self.shuffle = shuffle
+        self.random_state = random_state
+        self.Predictors_ = Predictors(pathEDF,signalsNames=signalNames,type_study=type_study)
+        self.list_id = self.Predictors_.getallpart()
+        # self.list_id = [1,5,7]
+        self.ensemble=ensemble
+        # self.list_id = [1]
+        self.on_epoch_end()
+
+    def __len__(self):
+        'Denotes the number of batches per epoch'
+        return len(self.list_id)
+
+    def on_epoch_end(self):
+        'Updates indexes after each epoch'
+        np.random.seed(self.random_state)
+        self.indexes = np.arange(1,len(self.list_id)+1)
+        if self.shuffle == True:
+            np.random.shuffle(self.indexes)
+
+    def __getitem__(self, index, scorer):
+        self.currentSignal = self.Predictors_.Load(index)
+        X = self.currentSignal.signal_dict["Signal"]
+
+
+
+        if not self.pipeline is None:
+            X = [self.pipeline.transform(x) for x in X]
+        # if self.ensemble:
+        X = np.array(X)
+        X = np.swapaxes(X,2,1)
+
+        nepoch_signal = int(X.shape[1]*(1/64)/self.Predictors_.epoch_time)-1
+        X_tmp = X[0,:(nepoch_signal*self.Predictors_.epoch_time/(1/64)),0].reshape((nepoch_signal,self.Predictors_.epoch_time/(1/64)))
+
+        hg_start = io.loadmat(f"{self.pathmat}/s{scorer}_p{index}.mat")
+        dt_object = datetime.datetime.fromtimestamp(hg_start["AnalysisStartDateNum"][0][0])
+        delta = datetime.timedelta(days=hg_start["AnalysisStartDateNum"][0][0])
+        dt_object = datetime.datetime(1900, 1, 1) + delta - datetime.timedelta(days=1)
+        dt_object = dt_object.strftime("%d-%m-%y %H:%M:%S")
+
+        HGTimes = [(dt_object+timedelta(seconds=int(i))).strftime("%H:%M:%S") for i in np.arange(len(hg_start["HypnogramNum"]))*30]
+        HGFrame = pd.DataFrame(HGTimes,columns=["Times"])
+
+        newmeasdate = (pd.to_datetime(self.currentSignal.metadata["Measure date"]).to_pydatetime())
+        if (newmeasdate.second != 0) or (newmeasdate.second != 30):
+            sub30 = 30 - newmeasdate.second
+            if sub30>15:
+                newmeasdate = newmeasdate - timedelta(seconds=newmeasdate.second)
+            else:
+                newmeasdate = newmeasdate + timedelta(seconds=sub30)
+
+        
+        SigTimes = [(newmeasdate+timedelta(seconds=int(i))).strftime("%H:%M:%S") for i in np.arange(nepoch_signal)*30]
+        SigFrame = pd.DataFrame(SigTimes,columns=["Times"])
+        SigFrame["Epochs"] = np.arange(0)
+
+        # print("Before predict:", X.shape,(X.shape[1]*(1/64))/self.Predictors_.epoch_time)
+        return X
+
+#################################      ONLY FOR VALIDATION          ###########################################################
+# class MatiasGeneratorPred(keras.utils.Sequence):
+#     """
+#     Class object creating a keras generator able to load and preprocess dataset object.
+#     """
+#     def __init__(self, pathEDF,shuffle=False, random_state=17):
+#         self.pathEDF = pathEDF
+#         self.shuffle = shuffle
+#         self.random_state = random_state
+#         self.Predictors_ = Predictors(pathEDF)
+#         self.list_id = self.Predictors_.getallpart()
+#         # self.list_id = [1,5,7]
+
+#         # self.list_id = [1]
+#         self.on_epoch_end()
+
+#     def __len__(self):
+#         'Denotes the number of batches per epoch'
+#         return len(self.list_id)
+
+#     def on_epoch_end(self):
+#         'Updates indexes after each epoch'
+#         np.random.seed(self.random_state)
+#         self.indexes = np.arange(1,len(self.list_id)+1)
+#         if self.shuffle == True:
+#             np.random.shuffle(self.indexes)
+
+#     def __getitem__(self, index):
+#         exclude = ['Abdomen CaL', 'Abdomen Fast', 'Abdomen', 'Activity', 'AF3 Impedance', 'AF4 Impedance', 'AF7 Impedance',  'AF8 Impedance', 'AFZ Impedance', 'Light', 'Audio', 'Audio Volume', 'Audio Volume dB', 'cRIP Flow', 'cRIP Sum', 'E1 Impedance', 'E1-E4 (Imp)','E2 Impedance', 'E2-AFZ (Imp)', 'E2-E3 (Imp)', 'E3 Impedance', 'E3-AFZ (Imp)', 'E4 Impedance', 'ECG','ECG Impedance', 'ECG LA', 'ECG LA Impedance', 'ECG LF', 'ECG LF Impedance', 'ECG RA', 'ECG RA Impedance', 'Elevation', 'EMG.Frontalis-Le', 'EMG.Frontalis-Ri', 'Flow','Flow Limitation', 'Inductance Abdom', 'Inductance Thora', 'K', 'LA-RA', 'Left Leg', 'Left Leg Impedan', 'LF-LA', 'LF-RA', 'Nasal Pressure', 'Pulse Waveform', 'PosAngle', 'Pulse','PWA', 'Resp Rate', 'Right Leg', 'Right Leg Impeda', 'RIP Flow', 'RIP Phase', 'RIP Sum', 'Snore', 'Saturation', 'SpO2 B-B', 'Thorax Fast', 'Chest', 'Voltage (battery', 'Voltage (bluetoo','Voltage (core)', 'X Axis', 'Y Axis', 'Z Axis']
+#         data_path = os.path.join(self.Predictors_.path_edf_data,self.Predictors_.allEdf[index-1])
+#         tmpfile = [i for i in os.listdir(data_path) if i.split(".")[-1] == "edf"][0]
+#         raw = mne.io.read_raw_edf(os.path.join(data_path,tmpfile), exclude=exclude)
+#         channel_names_sas = ['E1', 'E3', 'E2', 'E4', 'AF3', 'AF4', 'AF7', 'AF8', 'AFZ'] #channels to use in re-referencing (deriving) the conventional SAS channels
+#         raw_sas=raw.pick_channels(channel_names_sas)
+#         raw_sas.set_channel_types(dict(zip(channel_names_sas, ['eog', 'eog', 'eog', 'eog', 'eeg', 'eeg', 'eeg' ,'eeg', 'eog'])))
+#         raw_sas.load_data(verbose=True)
+#         raw_sas.set_eeg_reference(ref_channels=['E3','E4'], ch_type='eeg')
+#         raw_sas.rename_channels({'AF4' : 'AF4-E3E4','AF3' : 'AF3-E3E4','AF7' : 'AF7-E3E4','AF8' : 'AF8-E3E4'})
+#         raw_sas_der = mne.set_bipolar_reference(raw_sas, anode=['E3', 'E2', 'E1', 'E2'], cathode=['AFZ', 'AFZ','E4', 'E3'])
+#         raw_sas_der.set_channel_types(dict(zip(['E1-E4', 'E2-E3', 'E3-AFZ', 'E2-AFZ'], ['eeg','eeg','eeg','eeg'])))
+
+#         sas_signals=raw_sas_der.get_data()
+#         if np.shape(sas_signals[0])[0]%(200*30)!=0:
+#             mod = np.shape(sas_signals[0])[0]%(200*30)
+#             sas_signals = sas_signals[:,:-mod]
+#         for i in range(0,8):
+#             if i == 0:
+#                 X = iqr_standardize(resample_2(cheby2_highpass_filtfilt(sas_signals[i,:], 200, 0.3)))
+#                 # X = iqr_standardize(cheby2_highpass_filtfilt(resample_2(sas_signals[i,:]), 64, 0.3))
+#                 X = X[np.newaxis, ..., np.newaxis]
+#             else:
+#                 X_tmp = iqr_standardize(resample_2(cheby2_highpass_filtfilt(sas_signals[i,:], 200, 0.3))) 
+#                 # X_tmp = iqr_standardize(cheby2_highpass_filtfilt(resample_2(sas_signals[i,:]), 64, 0.3))
+#                 X_tmp = X_tmp[np.newaxis, ..., np.newaxis]
+#                 X = np.concatenate((X,X_tmp))
+#         return X
+#     #################################################################################################################################################################################
+
+
+
 
 if __name__ == "__main__":
     pathToData = "/main/home/gabrielj@sleep.ru.is/GrayAreaDL/TmpData/"
@@ -126,3 +290,7 @@ if __name__ == "__main__":
     DG = DataGenerator(pathToData, batch_size, signalNames, predictionName, Numscorer, shuffle=False, random_state=17)
     
     print(DG.__getitem__(0))
+
+# print('Preprocessing signals...')
+# eeg_signal = iqr_standardize(cheby2_highpass_filtfilt(resample_2(s_eeg), 64, 0.3)) # preprocessing steps
+# og_signal = iqr_standardize(cheby2_highpass_filtfilt(resample_2(s_eog), 64, 0.3)) # preprocessing steps
