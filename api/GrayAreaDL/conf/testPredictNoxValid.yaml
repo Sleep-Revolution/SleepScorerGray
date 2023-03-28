@@ -1,7 +1,9 @@
 ModelPath: /main/home/gabrielj@sleep.ru.is/GrayAreaDL/logs/E1M2_iqr_std_2021-11-04_135554/
-EDFPath: /datasets/10x100/sas/EDF exports/
-PredPath: ./TmpPredict/
-SignalChannels: ['AF3-E3E4', 'AF4-E3E4', 'AF7-E3E4', 'AF8-E3E4', 'E1-E4', 'E2-E3', 'E2-AFZ', 'E3-AFZ']
+EDFPath: /datasets/10x1002/EDF/SAS/
+# path PSG /datasets/10x1002/EDF/PSG/
+# path SAS /datasets/10x1002/EDF/SAS/
+PredPath: ./TmpPredSASNox/
+SignalChannels:  ['AF3-E3E4', 'AF4-E3E4', 'AF7-E3E4', 'AF8-E3E4', 'E1-E4', 'E2-E3', 'E2-AFZ', 'E3-AFZ']
 # SAS signal: ['AF3-E3E4', 'AF4-E3E4', 'AF7-E3E4', 'AF8-E3E4', 'E1-E4', 'E2-E3', 'E2-AFZ', 'E3-AFZ']
 # PSG signal: ['F4-M1', 'F3-M2', 'C4-M1', 'C3-M2', 'O1-M2', 'O2-M1', 'E1-M2', 'E2-M1']
 GrayAreaThreshold: 0.3

@@ -1,6 +1,10 @@
 /api/GrayAreaDL/logs/E1M2_iqr_std_2021-11-04_135554/
 /api/GrayAreaDL/TmpData/
 /api/GrayAreaDL/TmpPredict/
+/api/GrayAreaDL/TmpPredPSGNox/
+/api/GrayAreaDL/TmpPredSASNox/
+/api/GrayAreaDL/TmpPredMatPSG/
+/api/GrayAreaDL/TmpPredMatSAS/
 /api/GrayAreaDL/TmpPredictTMP/
 *.ipynb_checkpoints
 /api/__pycache__/
